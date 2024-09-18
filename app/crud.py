@@ -1,14 +1,14 @@
+import uuid
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, session
 from . import models, schemas
-from .models import Token, TokenRateLimit
-from .password_utills import get_password_hash
+from app.models import Token, TokenRateLimit, EmailVerificationToken
+from .password_utils import get_password_hash
 from .token_utils import create_jwt_token
-from app.models import Token, TokenRateLimit as TokenRateLimitModel
 from app.token_rate_limit import TokenRateLimit as TokenRateLimitChecker
-from sqlalchemy.dialects.postgresql import insert
 
 
 # 사용자 생성
@@ -35,8 +35,8 @@ def create_token(db: Session, user_id: int) -> Token:
     rate_limit_checker = TokenRateLimitChecker(db=db, max_tokens=30, period=10)
     rate_limit_checker.check(user_id)  # Rate limit 체크
 
-    now = datetime.utcnow()  # 현재 시간
-    expiration = now + timedelta(hours=1)  # 새 토큰의 만료 시간을 1시간 후로 설정
+    now = datetime.now(ZoneInfo("Asia/Seoul"))  # 현재 시간
+    expiration = now + timedelta(minutes=30)  # 새 토큰의 만료 시간을 1시간 후로 설정
 
     # 현재 사용자의 활성 토큰을 확인하여 이미 로그인 중인지 확인
     existing_tokens = db.query(Token).filter(
@@ -76,7 +76,7 @@ def create_token(db: Session, user_id: int) -> Token:
 # token 생성 제한 관리
 def upsert_token_rate_limit(db: Session, user_id: int):
     # 현재 시간
-    now = datetime.utcnow()
+    now =datetime.now(ZoneInfo("Asia/Seoul"))
 
     try:
         # 레이트 리미트 레코드를 삽입하거나 업데이트
@@ -116,7 +116,7 @@ def delete_token(db: Session, user_id: int):
     # 사용자 ID로 활성 토큰 조회
     tokens = db.query(models.Token).filter(
         models.Token.user_id == user_id,
-        models.Token.expires_at > datetime.utcnow()
+        models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
     ).all()
 
     # 활성 토큰이 있으면 삭제
@@ -138,7 +138,7 @@ def register_device(db: Session, user_id: int, device_type: str, device_name: st
         device = models.UserDevice(user_id=user_id, device_type=device_type, device_name=device_name,
                                    ip_address=ip_address)
         db.add(device)
-    device.last_used = datetime.utcnow()
+    device.last_used = datetime.now(ZoneInfo("Asia/Seoul"))
     db.commit()
     db.refresh(device)
     return device
@@ -165,7 +165,7 @@ def register_or_update_device(db: Session, user_id: int, device_info: schemas.De
 
     if device:
         # 기기 정보가 이미 등록되어 있는 경우, `last_used`를 현재 시각으로 업데이트합니다.
-        device.last_used = datetime.utcnow()
+        device.last_used = datetime.now(ZoneInfo("Asia/Seoul"))
     else:
         # 기기 정보가 등록되어 있지 않은 경우, 새 기기를 등록합니다.
         device = models.UserDevice(
@@ -173,7 +173,7 @@ def register_or_update_device(db: Session, user_id: int, device_info: schemas.De
             # device_type=device_info.device_type,#python으로 수집
             # device_name=device_info.device_name,#python으로 수집
             ip_address=device_info.ip_address,
-            last_used=datetime.utcnow()
+            last_used=datetime.now(ZoneInfo("Asia/Seoul"))
         )
         db.add(device)
     db.commit()
@@ -221,6 +221,19 @@ def get_referral_by_usernames(db: Session, referrer_username: str, referred_user
 # 모든 추천인 관계를 조회, 데이터분석 및 관리자모드에서 일괄처리시 필요
 def get_all_referrals(db: Session):
     return db.query(models.Referral).all()
+
+
+# 이메일 인증 토큰 저장
+async def create_verification_token(db: Session, user_id: int):
+    token = str(uuid.uuid4())
+    expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
+    verification_token = EmailVerificationToken(user_id=user_id, token=token, expires_at=expires_at)
+    db.add(verification_token)
+    db.commit()
+    return token
+
+
+
 
 
 

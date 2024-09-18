@@ -1,14 +1,17 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 from fastapi.exceptions import HTTPException
 from sqlalchemy.orm import Session
 from app.models import TokenRateLimit as TokenRateLimitModel
 
+# 로그인 시 토큰 생성 제한
 class TokenRateLimit:
     def __init__(self, db: Session, max_tokens: int, period: int):
         self.db = db
         self.max_tokens = max_tokens
         self.period = period  # 기간을 분 단위로 설정
-        self.now = datetime.utcnow()
+        self.now = datetime.now(ZoneInfo("Asia/Seoul"))
         self.start_time = self.now - timedelta(minutes=self.period)
 
     def check(self, user_id: int):

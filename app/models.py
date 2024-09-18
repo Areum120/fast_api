@@ -13,6 +13,7 @@ class User(Base):
     password = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
+    email_verified = Column(Boolean, default=False)  # 이메일 인증 여부
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -32,7 +33,7 @@ class User(Base):
     # 유저의 결제 내역
     payments = relationship("Payment", back_populates="user")
 
-# token
+# login token
 class Token(Base):
     __tablename__ = "tokens"
     token_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -43,7 +44,7 @@ class Token(Base):
 
     user = relationship("User", back_populates="tokens")
 
-# token 생성 빈도 관리
+# login token 생성 빈도 관리
 class TokenRateLimit(Base):
     __tablename__ = "token_rate_limits"
     user_id = Column(Integer, ForeignKey("users.user_id"), primary_key=True)
@@ -52,6 +53,20 @@ class TokenRateLimit(Base):
     last_attempt = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="rate_limits")
+
+# 이메일 인증 토큰 테이블
+class EmailVerificationToken(Base):
+    __tablename__ = "email_verification_tokens"
+    token_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    token = Column(String, nullable=False)
+    issued_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User", back_populates="email_verification_tokens")
+
+
+
 
 # 사용자 기기 관리
 class UserDevice(Base):

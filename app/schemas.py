@@ -1,6 +1,9 @@
+import os
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+
 
 # 사용자 생성 시 필요한 스키마
 class UserCreate(BaseModel):
@@ -34,7 +37,8 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-# 토큰
+# login 토큰
+# api 요청시 반환
 class TokenResponse(BaseModel):
     token: str
     expires_at: datetime
@@ -50,6 +54,28 @@ class Token(BaseModel):
 
     class Config:
         from_attributes = True
+
+# 이메일 토큰
+# 새로운 이메일 인증 토큰을 생성할 때 사용 (post)
+class EmailVerificationTokenCreate(BaseModel):
+    user_id: int
+    token: str
+    expires_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# 데이터베이스에 저장된 이메일 인증 토큰 정보를 반환 (get)
+class EmailVerificationToken(BaseModel):
+    token_id: int
+    user_id: int
+    token: str
+    issued_at: datetime
+    expires_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 # 사용자기기
 class Device(BaseModel):

@@ -1,4 +1,6 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from bcrypt import checkpw
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -8,7 +10,7 @@ from app.database import SessionLocal
 from app.dependencies import  get_db
 from app.models import User
 from app.token_utils import decode_jwt_token
-from app.password_utills import verify_password
+from app.password_utils import verify_password
 from typing import List
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +33,7 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     # 기존 활성 토큰 확인
     existing_token = db.query(models.Token).filter(
         models.Token.user_id == db_user.user_id,
-        models.Token.expires_at > datetime.utcnow()
+        models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
     ).first()
 
     if existing_token:
@@ -70,7 +72,7 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         active_token = db.query(models.Token).filter(
             models.Token.user_id == user_id,
             models.Token.token == token,
-            models.Token.expires_at > datetime.utcnow()
+            models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
         ).first()
 
         if not active_token:
@@ -86,10 +88,14 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 
 
 # 현재 로그인 중인 사용자 확인 API
+
 @router.get("/current_sessions", response_model=List[schemas.User])
 def current_sessions(db: Session = Depends(get_db)):
     # 현재 시간 기준으로 만료되지 않은 토큰 조회
-    active_tokens = db.query(models.Token.user_id).filter(models.Token.expires_at > datetime.utcnow()).all()
+    now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+    active_tokens = db.query(models.Token.user_id).filter(models.Token.expires_at > now_kst).all()
+
     user_ids = [token.user_id for token in active_tokens]
     users = db.query(models.User).filter(models.User.user_id.in_(user_ids)).all()
+
     return users
