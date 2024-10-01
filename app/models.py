@@ -8,11 +8,11 @@ from .database import Base  # Base를 database.py에서 가져옵니다.
 class User(Base):
     __tablename__ = "users"
     user_id = Column(Integer, primary_key=True, autoincrement=True, unique=True, index=True)
-    name = Column(String, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
+    # name = Column(String, nullable=False)
+    # username = Column(String, unique=True, index=True, nullable=False)
+    user_email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
     email_verified = Column(Boolean, default=False)  # 이메일 인증 여부
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -26,7 +26,8 @@ class User(Base):
     tokens = relationship("Token", back_populates="user")
     # 토큰 생성 빈도 관리
     rate_limits = relationship("TokenRateLimit", back_populates="user")
-    # 기기
+
+     # 기기
     devices = relationship("UserDevice", back_populates="user")
     # 유저의 구독 내역
     subscriptions = relationship("Subscription", back_populates="user")
@@ -55,17 +56,21 @@ class TokenRateLimit(Base):
     user = relationship("User", back_populates="rate_limits")
 
 # 이메일 인증 토큰 테이블
-class EmailVerificationToken(Base):
-    __tablename__ = "email_verification_tokens"
-    token_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    token = Column(String, nullable=False)
-    issued_at = Column(DateTime, default=datetime.utcnow)
+# class EmailVerificationToken(Base):
+#     __tablename__ = "email_verification_tokens"
+#     token_id = Column(Integer, primary_key=True, autoincrement=True)
+#     token = Column(String, nullable=False)
+#     issued_at = Column(DateTime, default=datetime.utcnow)
+#     expires_at = Column(DateTime, nullable=False)
+
+# 이메일 인증 코드 테이블
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(10), nullable=False)  # Keep the code length manageable
+    user_email = Column(String, nullable=False, unique=True)  # 사용자 이메일, 고유 제약 조건 추가
+    created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
-
-    user = relationship("User", back_populates="email_verification_tokens")
-
-
 
 
 # 사용자 기기 관리

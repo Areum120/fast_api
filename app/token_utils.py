@@ -7,8 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict
 
 from sqlalchemy.orm import session
-
-from app.models import EmailVerificationToken
+# from app.models import EmailVerificationToken
 
 # token encoding, decoding
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -31,12 +30,11 @@ def decode_jwt_token(token: str) -> Dict:
         raise ValueError("Invalid token")
 
 # 이메일 토큰 발급
-
-async def create_verification_token(user_id: int):
-    token = str(uuid.uuid4())
-    expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
-    # 토큰을 데이터베이스에 저장 (여기서는 예시로 메모리 사용)
-    verification_token = EmailVerificationToken(user_id=user_id, token=token, expires_at=expires_at)
-    session.add(verification_token)
-    session.commit()
-    return token
+# async def create_verification_token(user_id: int):
+#     token = str(uuid.uuid4())
+#     expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
+#     # 토큰을 데이터베이스에 저장 (여기서는 예시로 메모리 사용)
+#     verification_token = EmailVerificationToken(user_id=user_id, token=token, expires_at=expires_at)
+#     session.add(verification_token)
+#     session.commit()
+#     return token

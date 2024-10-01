@@ -2,32 +2,35 @@ import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, session
 from . import models, schemas
-from app.models import Token, TokenRateLimit, EmailVerificationToken
+from app.models import Token, TokenRateLimit, User, EmailVerificationCode
 from .password_utils import get_password_hash
 from .token_utils import create_jwt_token
 from app.token_rate_limit import TokenRateLimit as TokenRateLimitChecker
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 사용자 생성
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
-        name=user.name,
-        username=user.username,
+        # name=user.name,
+        user_email=user.user_email,
         password=hashed_password,  # 해시화된 비밀번호 저장
         phone_number=user.phone_number,
-        email=user.email
     )
     db.add(db_user)
     db.commit()
     return db_user
 
-#사용자 조회 (username(ID)으로 조회)
-def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+#사용자 조회 (email로 조회)
+def get_user_by_user_email(db: Session, user_email: str):
+    return db.query(models.User).filter(models.User.user_email == user_email).first()
 
 # 토큰 생성
 def create_token(db: Session, user_id: int) -> Token:
@@ -36,7 +39,7 @@ def create_token(db: Session, user_id: int) -> Token:
     rate_limit_checker.check(user_id)  # Rate limit 체크
 
     now = datetime.now(ZoneInfo("Asia/Seoul"))  # 현재 시간
-    expiration = now + timedelta(minutes=30)  # 새 토큰의 만료 시간을 1시간 후로 설정
+    expiration = now + timedelta(minutes=30)  # 새 토큰의 만료 시간을 30분 후로 설정
 
     # 현재 사용자의 활성 토큰을 확인하여 이미 로그인 중인지 확인
     existing_tokens = db.query(Token).filter(
@@ -223,25 +226,75 @@ def get_all_referrals(db: Session):
     return db.query(models.Referral).all()
 
 
+# 이메일 인증 코드 저장
+async def create_verification_code(db: Session, user_email: str, verification_code: str):
+    # 이메일 소문자로 변환
+    user_email = user_email.lower()
+
+    # 현재 시간 가져오기
+    now = datetime.now(ZoneInfo("Asia/Seoul"))
+
+    # 대소문자 구분하여 사용자 조회(email_verification_codes table에서 조회)
+    existing_user = db.query(EmailVerificationCode).filter(EmailVerificationCode.user_email == user_email).first()
+
+    # 인증 코드 조회 시 이메일을 소문자로 변환하여 비교
+    existing_code_entry = db.query(EmailVerificationCode).filter(func.lower(EmailVerificationCode.user_email) == user_email).first()
+
+    logger.info(f"Querying for user_email: {user_email}")
+    logger.info(f"Existing user: {existing_user}")
+    logger.info(f"Existing code entry: {existing_code_entry}")
+
+    if existing_user:
+        # 사용자가 존재하는 경우, 인증 코드가 이미 존재하는지 확인
+        if existing_code_entry:
+            # 인증 코드가 이미 존재하는 경우, 업데이트
+            existing_code_entry.code = verification_code  # 코드 업데이트
+            existing_code_entry.expires_at = now + timedelta(minutes=5)  # 유효 시간 업데이트
+            existing_code_entry.created_at = now  # created_at 필드도 업데이트
+            db.commit()
+        else:
+            # 새로운 인증 코드 생성
+            new_code_entry = EmailVerificationCode(
+                user_email=user_email,
+                code=verification_code,
+                created_at=now,  # created_at 필드 추가
+                expires_at=now + timedelta(minutes=5)  # 코드 유효시간 5분
+            )
+            db.add(new_code_entry)
+            db.commit()
+    else:
+        # 사용자가 존재하지 않을 경우, 새로운 인증 코드 생성
+        new_code_entry = EmailVerificationCode(
+            user_email=user_email,
+            code=verification_code,
+            created_at=now,  # created_at 필드 추가
+            expires_at=now + timedelta(minutes=5)  # 코드 유효시간 5분
+        )
+        db.add(new_code_entry)
+        db.commit()
+
+
 # 이메일 인증 토큰 저장
-async def create_verification_token(db: Session, user_id: int):
-    token = str(uuid.uuid4())
-    expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
-    verification_token = EmailVerificationToken(user_id=user_id, token=token, expires_at=expires_at)
-    db.add(verification_token)
-    db.commit()
-    return token
-
-
-
-
-
-
-
-# # 사용자 조회 (ID로 조회)
-# def get_user_by_id(db: Session, user_id: int):
-#     return db.query(models.User).filter(models.User.user_id == user_id).first()
+# async def create_verification_token(db: Session, user_email: str):
+#     # 사용자 조회
+#     user = db.query(User).filter(User.user_email == user_email).first()
 #
+#     # 사용자가 존재하는 경우 예외 처리
+#     if user:
+#         raise ValueError("User already exists")
+#
+#     # 사용자 없을 때 이메일 인증 토큰 생성
+#     token = str(uuid.uuid4())
+#     expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
+#
+#     verification_token = EmailVerificationToken(
+#         token=token,
+#         expires_at=expires_at
+#     )
+#     db.add(verification_token)
+#     db.commit()
+#     return token
+
 # # 모든 사용자 조회
 # def get_users(db: Session, skip: int = 0, limit: int = 100):
 #     return db.query(models.User).offset(skip).limit(limit).all()
@@ -257,14 +310,20 @@ async def create_verification_token(db: Session, user_id: int):
 #     db.commit()
 #     db.refresh(db_user)
 #     return db_user
-#
-# # 사용자 삭제
-# def delete_user(db: Session, user_id: int):
-#     db_user = get_user_by_id(db, user_id)
-#     if not db_user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#
-#     db.delete(db_user)
-#     db.commit()
-#     return {"detail": "User deleted successfully"}
 
+
+# 사용자 조회 (ID로 조회)
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.user_id == user_id).first()
+
+# 사용자 삭제(탈퇴 시)
+def delete_user(db: Session, user_id: int):
+    db_user = get_user_by_id(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(db_user)
+    db.commit()
+    return {"detail": "User deleted successfully"}
+
+# 사용자 비밀번호 변경
