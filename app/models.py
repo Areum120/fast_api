@@ -13,7 +13,6 @@ class User(Base):
     user_email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     phone_number = Column(String, nullable=False)
-    email_verified = Column(Boolean, default=False)  # 이메일 인증 여부
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -71,6 +70,7 @@ class EmailVerificationCode(Base):
     user_email = Column(String, nullable=False, unique=True)  # 사용자 이메일, 고유 제약 조건 추가
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+    email_verified = Column(Boolean, default=False)  # 이메일 인증 여부
 
 
 # 사용자 기기 관리

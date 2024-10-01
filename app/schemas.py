@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
 from typing import Optional
+from xmlrpc.client import boolean
+
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -73,6 +75,7 @@ class EmailVerificationCode(BaseModel):
     user_email: str  # 사용자 이메일 추가
     created_at: datetime
     expires_at: datetime
+    email_verified: boolean
 
     class Config:
         from_attributes = True

@@ -108,7 +108,7 @@ async def verify_code(email: str, code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Code expired")
 
     # 이메일 인증 완료
-    user = db.query(User).filter(User.user_email == email).first()
+    user = db.query(User).filter(EmailVerificationCode.user_email == email).first()
     if user:
         user.email_verified = True
         db.commit()  # 변경 사항 커밋
