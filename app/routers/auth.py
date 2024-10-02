@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from bcrypt import checkpw
@@ -23,7 +23,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_db), device_info=schemas.Device):
     # 사용자 정보 조회
-    db_user = db.query(models.User).filter(models.User.user_email == user_email).first()
+    db_user = db.query(models.User).filter(models.User.user_email == user.user_email).first()
 
     # 사용자 존재 여부 및 비밀번호 검증
     if not db_user or not checkpw(user.password.encode('utf-8'), db_user.password.encode('utf-8')):
@@ -32,7 +32,7 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     # 기존 활성 토큰 확인
     existing_token = db.query(models.Token).filter(
         models.Token.user_id == db_user.user_id,
-        models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
+        models.Token.expires_at > datetime.now(timezone.utc)
     ).first()
 
     if existing_token:
@@ -71,7 +71,7 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         active_token = db.query(models.Token).filter(
             models.Token.user_id == user_id,
             models.Token.token == token,
-            models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
+            models.Token.expires_at > datetime.now(timezone.utc)
         ).first()
 
         if not active_token:
@@ -91,7 +91,7 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 @router.get("/current_sessions", response_model=List[schemas.User])
 def current_sessions(db: Session = Depends(get_db)):
     # 현재 시간 기준으로 만료되지 않은 토큰 조회
-    now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+    now_kst = datetime.now(timezone.utc)
     active_tokens = db.query(models.Token.user_id).filter(models.Token.expires_at > now_kst).all()
 
     user_ids = [token.user_id for token in active_tokens]

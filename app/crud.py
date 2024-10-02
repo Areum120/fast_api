@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -38,7 +38,7 @@ def create_token(db: Session, user_id: int) -> Token:
     rate_limit_checker = TokenRateLimitChecker(db=db, max_tokens=30, period=10)
     rate_limit_checker.check(user_id)  # Rate limit 체크
 
-    now = datetime.now(ZoneInfo("Asia/Seoul"))  # 현재 시간
+    now = datetime.now(timezone.utc)  # 현재 시간
     expiration = now + timedelta(minutes=30)  # 새 토큰의 만료 시간을 30분 후로 설정
 
     # 현재 사용자의 활성 토큰을 확인하여 이미 로그인 중인지 확인
@@ -79,7 +79,7 @@ def create_token(db: Session, user_id: int) -> Token:
 # token 생성 제한 관리
 def upsert_token_rate_limit(db: Session, user_id: int):
     # 현재 시간
-    now =datetime.now(ZoneInfo("Asia/Seoul"))
+    now = datetime.now(timezone.utc)
 
     try:
         # 레이트 리미트 레코드를 삽입하거나 업데이트
@@ -119,7 +119,7 @@ def delete_token(db: Session, user_id: int):
     # 사용자 ID로 활성 토큰 조회
     tokens = db.query(models.Token).filter(
         models.Token.user_id == user_id,
-        models.Token.expires_at > datetime.now(ZoneInfo("Asia/Seoul"))
+        models.Token.expires_at > datetime.now(timezone.utc)
     ).all()
 
     # 활성 토큰이 있으면 삭제
@@ -141,7 +141,7 @@ def register_device(db: Session, user_id: int, device_type: str, device_name: st
         device = models.UserDevice(user_id=user_id, device_type=device_type, device_name=device_name,
                                    ip_address=ip_address)
         db.add(device)
-    device.last_used = datetime.now(ZoneInfo("Asia/Seoul"))
+    device.last_used = datetime.now(timezone.utc)
     db.commit()
     db.refresh(device)
     return device
@@ -168,7 +168,7 @@ def register_or_update_device(db: Session, user_id: int, device_info: schemas.De
 
     if device:
         # 기기 정보가 이미 등록되어 있는 경우, `last_used`를 현재 시각으로 업데이트합니다.
-        device.last_used = datetime.now(ZoneInfo("Asia/Seoul"))
+        device.last_used = datetime.now(timezone.utc)
     else:
         # 기기 정보가 등록되어 있지 않은 경우, 새 기기를 등록합니다.
         device = models.UserDevice(
@@ -176,7 +176,7 @@ def register_or_update_device(db: Session, user_id: int, device_info: schemas.De
             # device_type=device_info.device_type,#python으로 수집
             # device_name=device_info.device_name,#python으로 수집
             ip_address=device_info.ip_address,
-            last_used=datetime.now(ZoneInfo("Asia/Seoul"))
+            last_used= datetime.now(timezone.utc)
         )
         db.add(device)
     db.commit()
@@ -232,7 +232,7 @@ async def create_verification_code(db: Session, user_email: str, verification_co
     user_email = user_email.lower()
 
     # 현재 시간 가져오기
-    now = datetime.now(ZoneInfo("Asia/Seoul"))
+    now = datetime.now(timezone.utc)
 
     # 대소문자 구분하여 사용자 조회(email_verification_codes table에서 조회)
     existing_user = db.query(EmailVerificationCode).filter(EmailVerificationCode.user_email == user_email).first()
@@ -285,7 +285,7 @@ async def create_verification_code(db: Session, user_email: str, verification_co
 #
 #     # 사용자 없을 때 이메일 인증 토큰 생성
 #     token = str(uuid.uuid4())
-#     expires_at = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=5)  # 토큰 유효시간 5분
+#     expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)  # 토큰 유효시간 5분
 #
 #     verification_token = EmailVerificationToken(
 #         token=token,

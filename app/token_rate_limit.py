@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi.exceptions import HTTPException
@@ -11,7 +11,7 @@ class TokenRateLimit:
         self.db = db
         self.max_tokens = max_tokens
         self.period = period  # 기간을 분 단위로 설정
-        self.now = datetime.now(ZoneInfo("Asia/Seoul"))
+        self.now = datetime.now(timezone.utc)
         self.start_time = self.now - timedelta(minutes=self.period)
 
     def check(self, user_id: int):

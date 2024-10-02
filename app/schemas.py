@@ -13,7 +13,7 @@ class UserCreate(BaseModel):
     user_email: str
     password: str = Field(..., min_length=8)  # 비밀번호는 필수이며 최소 길이 8자
     phone_number: str
-    referrer_username: Optional[str] = None  # 추천인 사용자명 (선택 사항)
+    # referrer_username: Optional[str] = None  # 추천인 사용자명 (선택 사항)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -34,7 +34,7 @@ class User(BaseModel):
         from_attributes = True
 # 로그인
 class UserLogin(BaseModel):
-    username: str
+    user_email: str
     password: str
 
 # login 토큰
