@@ -11,6 +11,7 @@ class TokenRateLimit:
         self.db = db
         self.max_tokens = max_tokens
         self.period = period  # 기간을 분 단위로 설정
+        # 현재 시간을 UTC로 변환하여 offset-aware로 설정
         self.now = datetime.now(timezone.utc)
         self.start_time = self.now - timedelta(minutes=self.period)
 
@@ -26,10 +27,17 @@ class TokenRateLimit:
 
         # Rate limit 기록 추가
         rate_limit = self.db.query(TokenRateLimitModel).filter_by(user_id=user_id).first()
+
         if rate_limit:
-            if (self.now - rate_limit.last_attempt).total_seconds() >= self.period * 60:
+            # last_attempt을 offset-aware로 변환
+            if rate_limit.last_attempt.tzinfo is None:
+                last_attempt_aware = rate_limit.last_attempt.replace(tzinfo=timezone.utc)
+            else:
+                last_attempt_aware = rate_limit.last_attempt  # 이미 offset-aware인 경우
+
+            if (self.now - last_attempt_aware).total_seconds() >= self.period * 60:
                 rate_limit.attempts = 0
-                rate_limit.last_attempt = self.now
+                rate_limit.last_attempt = self.now  # 새로운 시도로 업데이트
         else:
             rate_limit = TokenRateLimitModel(user_id=user_id, last_attempt=self.now, attempts=0)
             self.db.add(rate_limit)

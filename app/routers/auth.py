@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-
 from bcrypt import checkpw
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -22,6 +21,10 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_db), device_info=schemas.Device):
+
+    # 현재 시간을 UTC로 변환하여 offset-aware로 설정
+    now = datetime.now(timezone.utc)  # 이 부분에서 변수를 정의
+
     # 사용자 정보 조회
     db_user = db.query(models.User).filter(models.User.user_email == user.user_email).first()
 
@@ -29,10 +32,10 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     if not db_user or not checkpw(user.password.encode('utf-8'), db_user.password.encode('utf-8')):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    # 기존 활성 토큰 확인
+        # 기존 활성 토큰 확인 (이미 로그인된 경우 처리)
     existing_token = db.query(models.Token).filter(
         models.Token.user_id == db_user.user_id,
-        models.Token.expires_at > datetime.now(timezone.utc)
+        models.Token.expires_at > now  # 현재 시간과 비교
     ).first()
 
     if existing_token:
@@ -54,37 +57,11 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     # if not crud.is_device_registered(db, db_user.user_id, device_info):
     #     raise HTTPException(status_code=403, detail="Unauthorized device")
 
-
     # 새로운 토큰 생성
     new_token = crud.create_token(db, db_user.user_id)
     return schemas.TokenResponse(token=new_token.token, expires_at=new_token.expires_at)
 
-
-@router.post("/logout")
-def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        # JWT 토큰 디코딩
-        decoded_token = decode_jwt_token(token)
-        user_id = decoded_token.get("sub")
-
-        # DB에서 사용자 ID로 활성 토큰 조회
-        active_token = db.query(models.Token).filter(
-            models.Token.user_id == user_id,
-            models.Token.token == token,
-            models.Token.expires_at > datetime.now(timezone.utc)
-        ).first()
-
-        if not active_token:
-            raise HTTPException(status_code=400, detail="Token already expired or invalid")
-
-        # 토큰 만료 처리 및 DB에서 삭제
-        crud.delete_token(db, token)
-
-        return {"message": "Logged out successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-
+# 로그아웃은 로컬에서만 토큰 삭제하고 서버 상호작용 x, 라우터 구현 필요x
 
 # 현재 로그인 중인 사용자 확인 API
 
