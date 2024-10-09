@@ -76,6 +76,19 @@ def create_token(db: Session, user_id: int) -> Token:
 
     return token
 
+
+# token 삭제
+def delete_token(db: Session, user_id: int):
+    # 사용자 ID로 활성 토큰 조회
+    tokens = db.query(models.Token).filter(
+        models.Token.user_id == user_id,
+        models.Token.expires_at > datetime.now(timezone.utc)
+    ).all()
+    # 활성 토큰이 있으면 삭제
+    for token in tokens:
+        db.delete(token)
+    db.commit()
+
 # token 생성 제한 관리
 def upsert_token_rate_limit(db: Session, user_id: int):
     # 현재 시간

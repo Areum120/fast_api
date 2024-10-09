@@ -32,7 +32,7 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     if not db_user or not checkpw(user.password.encode('utf-8'), db_user.password.encode('utf-8')):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-        # 기존 활성 토큰 확인 (이미 로그인된 경우 처리)
+    # 기존 활성 토큰 확인 (이미 로그인된 경우 처리)
     existing_token = db.query(models.Token).filter(
         models.Token.user_id == db_user.user_id,
         models.Token.expires_at > now  # 현재 시간과 비교
@@ -61,7 +61,23 @@ def login(user: schemas.UserLogin, request: Request, db: Session = Depends(get_d
     new_token = crud.create_token(db, db_user.user_id)
     return schemas.TokenResponse(token=new_token.token, expires_at=new_token.expires_at)
 
-# 로그아웃은 로컬에서만 토큰 삭제하고 서버 상호작용 x, 라우터 구현 필요x
+# 로그아웃(온라인 사용만)
+@router.post("/logout")
+def logout(request: schemas.LogoutRequest, db: Session = Depends(get_db)):
+    # Extract the email from the request
+    user_email = request.user_email
+
+    db_user = db.query(models.User).filter(models.User.user_email == user_email).first()
+
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Invalidate the user's tokens
+    db.query(models.Token).filter(models.Token.user_id == db_user.user_id).delete()
+    db.commit()
+
+    return {"detail": "Logged out successfully"}
+
 
 # 현재 로그인 중인 사용자 확인 API
 

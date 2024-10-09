@@ -55,6 +55,10 @@ class Token(BaseModel):
     class Config:
         from_attributes = True
 
+# 로그아웃
+class LogoutRequest(BaseModel):
+    user_email: str
+
 # 이메일 인증 코드
 # 사용자 이메일 인증 요청을 위한 스키마
 class VerificationRequest(BaseModel):
